@@ -1,0 +1,54 @@
+SIMULADOR DE POUPANÇA ENERGÉTICA - COMO USAR
+============================================
+
+ESTRUTURA DESTA PASTA
+  main.go                    o programa (servidor + calculadora + leitura de faturas)
+  ferramentas\pdftotext.exe  lê o texto de PDFs (Xpdf 4.06, 32 bits)
+  ferramentas\pdftopng.exe   converte páginas de PDF em imagens (para PDFs digitalizados)
+  ferramentas\pdftoppm.exe   alternativa ao anterior
+
+COMO EXECUTAR (PowerShell ou terminal do VS Code, dentro desta pasta)
+  go run main.go
+Depois abra http://localhost:8080 no navegador (Ctrl+F5 para limpar a cache).
+Se a porta 8080 estiver ocupada:  go run main.go -addr localhost:3000
+
+O programa encontra sozinho as ferramentas da pasta "ferramentas". Não é preciso
+instalar nada nem mexer no PATH. Na página, em "Ferramentas de leitura local", deve
+aparecer  pdftotext: ✔ ... e pdftoppm/pdftopng: ✔ ...
+
+NOVIDADES
+  - Botão "Limpar dados" (topo): zera cliente, fatura e proposta (a tabela de preços é mantida).
+  - Bloco "Tabela de preços da proposta": carregue o ficheiro da outra concessionária (ou preencha à mão)
+    e a proposta é calculada com a linha da potência do cliente (ex.: 4,6 kVA), em tempo real,
+    online ou offline (a tabela fica guardada no navegador).
+
+  - Aba de gás natural: bloco "Tabela de preços do gás da proposta" por escalão de consumo (1 a 4).
+    Escolha o escalão do cliente (ou deixe a fatura preencher) e a proposta usa essa linha.
+
+  - Três abas: Eletricidade, Gás natural e Eletricidade + Gás. Ao ler uma fatura com os dois
+    serviços, a aba combinada abre sozinha, com os parâmetros e o total geral dos dois.
+  - A proposta aceita a tabela de preços OU a fatura de outra concessionária (preços aplicados
+    à potência e ao consumo do cliente).
+  - "Limpar dados" pede confirmação Sim / Não.
+
+O QUE LÊ AGORA
+  - PDF com texto selecionável ........... SIM (pdftotext)
+  - Word (.docx), Excel (.xlsx), ODT, ODS, RTF, TXT, CSV, HTML ... SIM (sem programas extra)
+  - Foto da fatura (JPG/PNG/WEBP/TIFF/BMP) e PDF digitalizado ... PRECISA do Tesseract
+
+FOTOS E PDFs DIGITALIZADOS: INSTALAR O TESSERACT (OCR)
+  1. Descarregue o instalador de 32 bits (w32) em
+     https://github.com/UB-Mannheim/tesseract/wiki
+  2. No instalador, marque o idioma Portuguese.
+  3. Mantenha a pasta C:\Program Files\Tesseract-OCR (o programa encontra-a sozinho).
+     Alternativa portátil: copiar a pasta instalada para ferramentas\tesseract\
+  4. Reinicie o programa (Ctrl+C e go run main.go).
+
+NOTA SOBRE OS FICHEIROS libtesseract302
+  São a biblioteca de programação do Tesseract 3.02 (2012). Não contêm o programa
+  tesseract.exe, nem o Leptonica (liblept168.dll), nem o runtime do Visual C++ 2008,
+  nem os dados de idioma. Sozinhos não conseguem ler imagens. Use o instalador acima.
+
+GERAR UM PROGRAMA DE DUPLO CLIQUE (opcional)
+  go build -o simulador.exe main.go
+  Mantenha a pasta "ferramentas" ao lado do simulador.exe.

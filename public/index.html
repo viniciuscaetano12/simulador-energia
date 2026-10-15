@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de Poupança Energética · Portugal</title>
+<meta name="description" content="Compare faturas de eletricidade e gás natural em tempo real e apresente propostas de poupança aos clientes.">
+<meta name="theme-color" content="#0f2a43">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="marca">
+    <svg class="marca-ico" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M18 4 8 18h6l-2 10 10-14h-6z" fill="#fff"/></svg>
+    <div>
+      <h1>Simulador de poupança energética</h1>
+      <p>Eletricidade e gás natural · Portugal</p>
+    </div>
+  </div>
+  <div class="topo-acoes">
+    <span class="pill" id="pill-rede" title="Estado da ligação">online</span>
+    <span class="pill pill-motor" id="pill-motor" title="Motor de cálculo">a iniciar…</span>
+    <button class="btn btn-ghost" id="btn-limpar" type="button" title="Apaga os dados do cliente, da fatura e da proposta">Limpar dados</button>
+    <button class="btn btn-ghost" id="btn-tema" type="button" aria-label="Alternar tema claro/escuro">Tema</button>
+  </div>
+</header>
+
+<nav class="separadores" role="tablist" aria-label="Tipo de energia">
+  <button role="tab" class="sep ativo" data-modo="eletricidade" aria-selected="true">Eletricidade</button>
+  <button role="tab" class="sep" data-modo="gas" aria-selected="false">Gás natural</button>
+  <button role="tab" class="sep" data-modo="ambos" aria-selected="false">Eletricidade + Gás</button>
+</nav>
+
+<main class="layout">
+
+  <!-- ENTRADAS -->
+  <section class="coluna-entradas" aria-label="Dados da simulação">
+
+    <div class="bloco bloco-fatura">
+      <div class="bloco-cab">
+        <h2>Fatura do cliente</h2>
+        <span class="pill pill-motor" id="pill-leitura">a verificar…</span>
+      </div>
+      <label class="dropzone desativada" id="dropzone">
+        <input type="file" id="ficheiro-fatura" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.xlsx,.txt,.csv,.html,image/*">
+        <strong>Carregue a fatura do cliente</strong>
+        <span>Arraste, toque para escolher ou cole uma captura · PDF, foto, Word, Excel ou texto</span>
+      </label>
+      <p class="nota-priv" id="nota-ocr" hidden></p>
+      <p class="nota-priv" id="nota-priv" hidden>Na leitura por IA o ficheiro é enviado à API da Anthropic para extrair os dados. Informe o cliente e não guarde faturas sem necessidade.</p>
+      <details class="chave-ia" id="chave-ia" hidden>
+        <summary>Chave da API (opcional · leitura por IA) <span id="chave-estado"></span></summary>
+        <div class="chave-linha">
+          <input type="password" id="chave-input" autocomplete="off" spellcheck="false" placeholder="Cole aqui a chave e clique em Guardar" aria-label="Chave da API Anthropic">
+          <button class="btn" id="btn-guardar-chave" type="button">Guardar</button>
+          <button class="btn btn-ghost" id="btn-remover-chave" type="button" hidden>Remover</button>
+        </div>
+        <p class="nota-priv" id="chave-nota"></p>
+      </details>
+      <details class="chave-ia" id="ferramentas-ia" hidden>
+        <summary>Ferramentas de leitura local <span id="ferr-estado"></span></summary>
+        <div class="chave-linha"><input type="text" id="ferr-poppler" placeholder="Pasta do pdftotext, ex.: C:\Program Files\Git\mingw32\bin" spellcheck="false" aria-label="Pasta do pdftotext"></div>
+        <div class="chave-linha"><input type="text" id="ferr-tesseract" placeholder="Pasta do Tesseract, ex.: C:\Program Files\Tesseract-OCR" spellcheck="false" aria-label="Pasta do Tesseract"></div>
+        <div class="chave-linha"><button class="btn" id="btn-guardar-ferr" type="button">Guardar caminhos</button></div>
+        <p class="nota-priv" id="ferr-nota"></p>
+      </details>
+      <div class="leitura" id="leitura" aria-live="polite"></div>
+    </div>
+
+    <div class="bloco bloco-cliente">
+      <h2>Cliente e proposta</h2>
+      <div class="grelha g2">
+        <label class="campo">Nome do cliente
+          <input type="text" data-s="meta" data-k="cliente" placeholder="Ex.: Maria Santos">
+        </label>
+        <label class="campo">Consultor / empresa
+          <input type="text" data-s="meta" data-k="consultor" placeholder="Ex.: A sua consultora">
+        </label>
+      </div>
+    </div>
+
+    <div class="bloco" id="bloco-perfil">
+      <div class="bloco-cab">
+        <h2>Perfil de consumo</h2>
+        <button class="btn btn-link" id="btn-exemplo" type="button">Carregar exemplo</button>
+      </div>
+      <div class="grelha g2">
+        <label class="campo" data-so="eletricidade">Potência contratada
+          <select data-s="perfil" data-k="potenciaKva" data-num>
+            <option value="">—</option><option>1.15</option><option>2.3</option><option>3.45</option><option selected>4.6</option>
+            <option>5.75</option><option>6.9</option><option>10.35</option><option>13.8</option>
+            <option>17.25</option><option>20.7</option><option>27.6</option><option>34.5</option><option>41.4</option>
+          </select>
+          <span class="un">kVA</span>
+        </label>
+        <label class="campo">Consumo no período
+          <input type="number" inputmode="decimal" min="0" step="any" data-s="perfil" data-k="consumoKwh" data-num>
+          <span class="un">kWh</span>
+        </label>
+        <label class="campo">Dias de faturação
+          <input type="number" inputmode="numeric" min="1" max="366" step="1" data-s="perfil" data-k="dias" data-num data-int>
+          <span class="un">dias</span>
+        </label>
+        <label class="campo" data-so="gas">Escalão de consumo
+          <select data-s="perfil" data-k="escalao" data-num>
+            <option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option>
+          </select>
+        </label>
+        <label class="campo" data-so="eletricidade">Tarifário
+          <select data-s="perfil" data-k="tarifa">
+            <option value="simples">Simples</option>
+            <option value="bi">Bi-horário</option>
+          </select>
+        </label>
+        <label class="campo p-bi" data-so="eletricidade" hidden>Consumo em vazio
+          <input type="number" inputmode="decimal" min="0" max="100" step="1" data-s="perfil" data-k="vazioPct" data-num>
+          <span class="un">%</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="duas-cols" id="bloco-fornecedores">
+      <div class="bloco bloco-atual">
+        <h2>Fornecedor atual</h2>
+        <label class="campo">Nome
+          <input type="text" data-s="atual" data-k="nome">
+        </label>
+        <div class="grelha g2">
+          <label class="campo"><span class="rot-pot">Potência</span>
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="atual" data-k="potDia" data-num>
+            <span class="un">€/dia</span>
+          </label>
+          <label class="campo p-simples"><span class="rot-en">Energia</span>
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="atual" data-k="precoSimples" data-num>
+            <span class="un">€/kWh</span>
+          </label>
+          <label class="campo p-bi" hidden>Vazio
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="atual" data-k="precoVazio" data-num>
+            <span class="un">€/kWh</span>
+          </label>
+          <label class="campo p-bi" hidden>Fora do vazio
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="atual" data-k="precoForaVazio" data-num>
+            <span class="un">€/kWh</span>
+          </label>
+          <label class="campo">Desconto
+            <input type="number" inputmode="decimal" min="0" max="100" step="any" data-s="atual" data-k="descontoPct" data-num>
+            <span class="un">%</span>
+          </label>
+          <label class="campo check largo" data-so="eletricidade"><input type="checkbox" data-s="atual" data-k="descontoPotencia"> Desconto também na potência</label>
+          <label class="campo">Outros serviços
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="atual" data-k="outrosMes" data-num>
+            <span class="un">€/mês</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="bloco bloco-proposta">
+        <h2>Proposta</h2>
+        <label class="campo">Nome
+          <input type="text" data-s="proposta" data-k="nome">
+        </label>
+        <div class="grelha g2">
+          <label class="campo"><span class="rot-pot">Potência</span>
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="proposta" data-k="potDia" data-num>
+            <span class="un">€/dia</span>
+          </label>
+          <label class="campo p-simples"><span class="rot-en">Energia</span>
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="proposta" data-k="precoSimples" data-num>
+            <span class="un">€/kWh</span>
+          </label>
+          <label class="campo p-bi" hidden>Vazio
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="proposta" data-k="precoVazio" data-num>
+            <span class="un">€/kWh</span>
+          </label>
+          <label class="campo p-bi" hidden>Fora do vazio
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="proposta" data-k="precoForaVazio" data-num>
+            <span class="un">€/kWh</span>
+          </label>
+          <label class="campo">Desconto
+            <input type="number" inputmode="decimal" min="0" max="100" step="any" data-s="proposta" data-k="descontoPct" data-num>
+            <span class="un">%</span>
+          </label>
+          <label class="campo check largo" data-so="eletricidade"><input type="checkbox" data-s="proposta" data-k="descontoPotencia"> Desconto também na potência</label>
+          <label class="campo">Outros serviços
+            <input type="number" inputmode="decimal" min="0" step="any" data-s="proposta" data-k="outrosMes" data-num>
+            <span class="un">€/mês</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="bloco bloco-tabela" id="bloco-tabela-elec" data-vista="eletricidade">
+      <div class="bloco-cab">
+        <h2>Tabela de preços da proposta</h2>
+        <span class="pill pill-motor" id="tabela-estado">sem tabela</span>
+      </div>
+      <label class="dropzone desativada" id="dropzone-tabela">
+        <input type="file" id="ficheiro-tabela" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.tif,.tiff,.bmp,.docx,.xlsx,.odt,.ods,.rtf,.txt,.csv,.html,image/*">
+        <strong>Carregue a tabela de preços ou a fatura da outra concessionária</strong>
+        <span>PDF, foto, Word, Excel ou texto · tabela por potência (kVA) ou fatura com os preços</span>
+      </label>
+      <div class="leitura" id="leitura-tabela" aria-live="polite"></div>
+      <div class="grelha g3 tab-global">
+        <label class="campo">Concessionária <input type="text" id="tg-nome" placeholder="Nome da concessionária" autocomplete="off"></label>
+        <label class="campo">Energia simples <input type="number" inputmode="decimal" step="any" min="0" id="tg-simples" data-tg="simples"><span class="un">€/kWh</span></label>
+        <label class="campo">Vazio <input type="number" inputmode="decimal" step="any" min="0" id="tg-vazio" data-tg="vazio"><span class="un">€/kWh</span></label>
+        <label class="campo">Fora de vazio <input type="number" inputmode="decimal" step="any" min="0" id="tg-fora" data-tg="fora"><span class="un">€/kWh</span></label>
+        <label class="campo">Desconto <input type="number" inputmode="decimal" step="any" min="0" max="100" id="tg-desc" data-tg="descontoPct"><span class="un">%</span></label>
+      </div>
+      <div class="tabela-wrap">
+        <table class="tabela tabela-prop">
+          <caption class="sr-only">Preços da proposta por potência contratada</caption>
+          <thead><tr><th scope="col">kVA</th><th scope="col">Potência €/dia</th><th scope="col">Simples €/kWh</th><th scope="col">Vazio €/kWh</th><th scope="col">Fora vazio €/kWh</th><th scope="col"></th></tr></thead>
+          <tbody id="tabela-corpo"></tbody>
+        </table>
+      </div>
+      <div class="acoes">
+        <button class="btn" id="btn-add-linha" type="button">Adicionar linha</button>
+        <button class="btn btn-ghost" id="btn-limpar-tabela" type="button">Limpar tabela</button>
+      </div>
+      <p class="nota-priv" id="tabela-uso"></p>
+    </div>
+
+    <div class="bloco bloco-tabela" id="bloco-tabela-gas" data-vista="gas">
+      <div class="bloco-cab">
+        <h2>Tabela de preços do gás da proposta</h2>
+        <span class="pill pill-motor" id="tabela-estado-gas">sem tabela</span>
+      </div>
+      <label class="dropzone desativada" id="dropzone-tabela-gas">
+        <input type="file" id="ficheiro-tabela-gas" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.tif,.tiff,.bmp,.docx,.xlsx,.odt,.ods,.rtf,.txt,.csv,.html,image/*">
+        <strong>Carregue a tabela de gás ou a fatura da outra concessionária</strong>
+        <span>PDF, foto, Word, Excel ou texto · tabela por escalão ou fatura com os preços</span>
+      </label>
+      <div class="leitura" id="leitura-tabela-gas" aria-live="polite"></div>
+      <div class="grelha g3 tab-global">
+        <label class="campo">Concessionária <input type="text" id="tgg-nome" placeholder="Nome da concessionária" autocomplete="off"></label>
+        <label class="campo">Termo fixo <input type="number" inputmode="decimal" step="any" min="0" id="tgg-termo" data-tgg="termo"><span class="un">€/dia</span></label>
+        <label class="campo">Energia <input type="number" inputmode="decimal" step="any" min="0" id="tgg-preco" data-tgg="preco"><span class="un">€/kWh</span></label>
+        <label class="campo">Desconto <input type="number" inputmode="decimal" step="any" min="0" max="100" id="tgg-desc" data-tgg="descontoPct"><span class="un">%</span></label>
+      </div>
+      <div class="tabela-wrap">
+        <table class="tabela tabela-prop">
+          <caption class="sr-only">Preços do gás da proposta por escalão de consumo</caption>
+          <thead><tr><th scope="col">Escalão</th><th scope="col">Termo fixo €/dia</th><th scope="col">Energia €/kWh</th><th scope="col"></th></tr></thead>
+          <tbody id="tabela-corpo-gas"></tbody>
+        </table>
+      </div>
+      <div class="acoes">
+        <button class="btn" id="btn-add-linha-gas" type="button">Adicionar linha</button>
+        <button class="btn btn-ghost" id="btn-limpar-tabela-gas" type="button">Limpar tabela</button>
+      </div>
+      <p class="nota-priv" id="tabela-uso-gas"></p>
+    </div>
+
+    <details class="bloco fiscal">
+      <summary>Parâmetros fiscais e taxas legais <small>editáveis · confirme os valores em vigor</small></summary>
+      <div class="grelha g3" id="fiscal-elec" data-vista="eletricidade">
+        <label class="campo">IEC <input type="number" step="any" data-s="fiscal" data-k="iecKwh" data-num><span class="un">€/kWh</span></label>
+        <label class="campo">Taxa DGEG <input type="number" step="any" data-s="fiscal" data-k="dgegMes" data-num><span class="un">€/mês</span></label>
+        <label class="campo">Contribuição audiovisual <input type="number" step="any" data-s="fiscal" data-k="cavMes" data-num><span class="un">€/mês</span></label>
+        <label class="campo">IVA normal <input type="number" step="any" data-s="fiscal" data-k="ivaNormal" data-num><span class="un">%</span></label>
+        <label class="campo">IVA reduzido <input type="number" step="any" data-s="fiscal" data-k="ivaReduzido" data-num><span class="un">%</span></label>
+        <label class="campo">kWh c/ IVA reduzido <input type="number" step="any" data-s="fiscal" data-k="limiteKwhReduzido" data-num><span class="un">kWh/30d</span></label>
+        <label class="campo">Energia reduzida até <input type="number" step="any" data-s="fiscal" data-k="energiaReduzidaMaxKva" data-num><span class="un">kVA</span></label>
+        <label class="campo">Potência reduzida até <input type="number" step="any" data-s="fiscal" data-k="potReduzidaMaxKva" data-num><span class="un">kVA</span></label>
+        <label class="campo check"><input type="checkbox" data-s="fiscal" data-k="cavAplica"> Cobrar CAV</label>
+      </div>
+      <div class="grelha g3" id="fiscal-gas" data-vista="gas" hidden>
+        <label class="campo">IVA gás <input type="number" step="any" data-s="fiscal" data-k="gasIva" data-num><span class="un">%</span></label>
+        <label class="campo">Imposto s/ gás (ISP) <input type="number" step="any" data-s="fiscal" data-k="gasIspKwh" data-num><span class="un">€/kWh</span></label>
+        <label class="campo">Taxa DGEG gás <input type="number" step="any" data-s="fiscal" data-k="gasDgegMes" data-num><span class="un">€/mês</span></label>
+      </div>
+      <button class="btn btn-link" id="btn-repor-fiscal" type="button">Repor valores por omissão</button>
+    </details>
+  </section>
+
+  <!-- RESULTADOS -->
+  <aside class="coluna-resultado" aria-live="polite">
+
+    <div class="print-cab">
+      <div>
+        <strong id="p-consultor">—</strong>
+        <span>Proposta de poupança energética</span>
+      </div>
+      <div class="print-dados">
+        <span>Cliente: <b id="p-cliente">—</b></span>
+        <span id="p-data"></span>
+      </div>
+    </div>
+
+    <div class="heroi" id="heroi">
+      <p class="heroi-rot" id="heroi-rot">Poupança por fatura</p>
+      <p class="heroi-num" id="heroi-num">0,00 €</p>
+      <p class="heroi-sub" id="heroi-sub">—</p>
+      <div class="heroi-kpis">
+        <div><span>Por ano</span><b id="kpi-ano">—</b></div>
+        <div><span>Redução</span><b id="kpi-pct">—</b></div>
+        <div><span>Em 24 meses</span><b id="kpi-24">—</b></div>
+      </div>
+    </div>
+
+    <div class="barras" aria-hidden="true">
+      <div class="barra-lin"><span id="b-nome-a">Atual</span><div class="barra"><i id="b-a"></i></div><b id="b-v-a">—</b></div>
+      <div class="barra-lin"><span id="b-nome-p">Proposta</span><div class="barra"><i id="b-p" class="prop"></i></div><b id="b-v-p">—</b></div>
+    </div>
+
+    <div class="tabela-wrap">
+      <table class="tabela" id="tabela">
+        <thead>
+          <tr><th>Componente</th><th class="num" id="th-a">Atual</th><th class="num" id="th-p">Proposta</th><th class="num">Poupança</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <p class="nota-sub"><strong>O subtotal não é o total da fatura.</strong> Ainda faltam impostos, taxas e eventuais serviços adicionais.</p>
+
+    <div class="acoes">
+      <button class="btn btn-primario" id="btn-imprimir" type="button">Gerar proposta (PDF)</button>
+      <button class="btn" id="btn-copiar" type="button">Copiar resumo</button>
+    </div>
+    <p class="aviso-print">Valores estimativos, calculados com os preços e as taxas indicados nesta proposta. A fatura real depende do consumo efetivo, de acertos de leitura e da legislação em vigor.</p>
+  </aside>
+</main>
+
+<section class="explica" aria-label="Como é calculada uma fatura">
+  <h2>Como é calculada uma fatura de eletricidade em Portugal</h2>
+  <div class="tabela-wrap">
+  <table class="tabela tabela-info">
+    <thead><tr><th>Componente</th><th>Como é calculada</th></tr></thead>
+    <tbody>
+      <tr><td>Potência contratada</td><td>Preço diário × número de dias</td></tr>
+      <tr><td>Energia consumida</td><td>kWh consumidos × preço por kWh</td></tr>
+      <tr><td>IEC</td><td>Imposto especial de consumo de eletricidade</td></tr>
+      <tr><td>Taxa DGEG</td><td>Taxa fixa de exploração aplicável</td></tr>
+      <tr><td>Contribuição audiovisual (CAV)</td><td>Valor mensal, quando aplicável</td></tr>
+      <tr><td>IVA</td><td>Aplicado às componentes conforme as taxas legais</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<footer class="rodape">
+  <p>Ferramenta de apoio à consultoria. Os parâmetros fiscais são editáveis e devem ser confirmados nas fontes oficiais (ERSE, DGEG, Autoridade Tributária) antes de cada proposta.</p>
+</footer>
+
+<div class="barra-fixa" id="barra-fixa" aria-hidden="true">
+  <span>Poupança por fatura</span><b id="fixa-val">—</b>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
